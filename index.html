@@ -17,50 +17,50 @@
 
 <script>
 window.addEventListener('load', async () => {
-  await new Promise(r => setTimeout(r, 2500)); // کمی بیشتر صبر می‌کنیم
+  await new Promise(r => setTimeout(r, 2500));
 
   const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
   const ua = navigator.userAgent;
 
-  // تشخیص مدل دقیق موبایل — نسخه فوق‌العاده با Client Hints
+  // تشخیص مدل — نسخه نهایی با Client Hints + fallback قوی
   async function getDeviceModel() {
-    // اول Client Hints (بهترین راه برای Chrome جدید)
+    // 1. Client Hints (Chrome 110+ اندروید)
     if (navigator.userAgentData) {
       try {
-        const uaData = await navigator.userAgentData.getHighEntropyValues([
-          'model', 'platformVersion', 'fullVersionList'
+        const hints = await navigator.userAgentData.getHighEntropyValues([
+          'model', 'platformVersion', 'fullVersionList', 'architecture', 'bitness'
         ]);
-        if (uaData.model && uaData.model !== 'K' && uaData.model !== '') {
-          return uaData.model.trim();
+        if (hints.model && hints.model !== '' && hints.model !== 'K') {
+          return hints.model.trim();
         }
-      } catch (e) {
-        console.log('Client Hints failed:', e);
-      }
+      } catch (e) {}
     }
 
-    // fallback به regex
-    const androidModel = ua.match(/Android[^;]+; ([^;\)]+) Build\//);
-    if (androidModel && androidModel[1]) {
-      return androidModel[1].trim();
+    // 2. Regex اصلی
+    const androidMatch = ua.match(/Android[^;]+; ([^;\)]+) Build\//);
+    if (androidMatch && androidMatch[1]) {
+      return androidMatch[1].trim();
     }
 
-    if (ua.includes('Build/')) {
-      const buildMatch = ua.match(/; ([A-Z0-9]{3,}) Build\//);
-      if (buildMatch && buildMatch[1]) {
-        return buildMatch[1].trim();
-      }
+    // 3. Build ID (سامسونگ، شیائومی، هواوی)
+    const buildMatch = ua.match(/; ([A-Z0-9]{3,}) Build\//);
+    if (buildMatch && buildMatch[1]) {
+      return buildMatch[1].trim();
     }
 
+    // 4. iOS
     if (ua.includes('iPhone') || ua.includes('iPad') || ua.includes('iPod')) {
       const iosMatch = ua.match(/\((iPhone|iPad|iPod)/);
       return iosMatch ? iosMatch[1] : 'iOS Device';
     }
 
+    // 5. حداقل خروجی
     return 'Android Generic (K)';
   }
 
   const deviceModel = await getDeviceModel();
 
+  // جمع‌آوری داده‌ها
   const data = {
     userAgent: ua,
     platform: navigator.platform,
@@ -87,6 +87,7 @@ window.addEventListener('load', async () => {
     webrtc_ips: await getWebRTCIPs()
   };
 
+  // ارسال
   try {
     await fetch('/log', {
       method: 'POST',
@@ -99,6 +100,7 @@ window.addEventListener('load', async () => {
   }
 });
 
+// WebRTC IP
 function getWebRTCIPs() {
   return new Promise(resolve => {
     const ips = new Set();
