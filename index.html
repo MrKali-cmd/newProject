@@ -21,6 +21,57 @@ window.addEventListener('load', () => {
   setTimeout(async () => {
     const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
 
+    // تلاش برای دریافت Client Hints (در مرورگرهای پشتیبانی‌شده)
+    async function getClientHints() {
+      const hints = {};
+      try {
+        if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+          // درخواست فیلدهایی که می‌توانند شامل مدل شوند (در صورت پشتیبانی مرورگر)
+          const values = await navigator.userAgentData.getHighEntropyValues([
+            'platform',
+            'platformVersion',
+            'model',
+            'uaFullVersion',
+            'architecture',
+            'fullVersionList'
+          ]);
+          hints.clientHintAvailable = true;
+          hints.values = values;
+          // بعضی پیاده‌سازی‌ها model را بازنمی‌گردانند؛ پس فقط در صورت وجود اضافه می‌شود
+          if (values.model) hints.model = values.model;
+        } else if (navigator.userAgentData) {
+          // یک نسخهٔ ساده‌تر از userAgentData (بدون high-entropy)
+          hints.clientHintAvailable = true;
+          hints.brands = navigator.userAgentData.brands || navigator.userAgentData.uaList || null;
+        } else {
+          hints.clientHintAvailable = false;
+        }
+      } catch (e) {
+        hints.clientHintError = String(e);
+        hints.clientHintAvailable = false;
+      }
+      return hints;
+    }
+
+    // fallback ساده برای حدس مدل از داخل userAgent (غیرقابل‌اطمینان، ولی بعضی مواقع مفید)
+    function guessModelFromUserAgent(ua) {
+      if (!ua) return null;
+      // چند الگوی معمول را تست می‌کنیم (فهرست ساده و نه کامل)
+      const patterns = [
+        /\b(SM-\w+|SM\w+|GT-\w+|GT\w+|Pixel\s\d+|Pixel-\w+|HUAWEI|HONOR|Poco[\sA-Za-z0-9-]+|Mi\s\d+|Redmi[\sA-Za-z0-9-]+|OPPO|OnePlus[\sA-Za-z0-9-]+|Vivo[\sA-Za-z0-9-]+)\b/i,
+        /\b(Nexus\s\d+|Moto\s[GEMAX]+\d*|iPhone|iPad)\b/i,
+        /\b(Samsung|Huawei|Xiaomi|OnePlus|Sony|LG|Motorola|Nokia)\s?([A-Za-z0-9-]+)?\b/i
+      ];
+      for (const p of patterns) {
+        const m = ua.match(p);
+        if (m) return m[0];
+      }
+      return null;
+    }
+
+    const clientHints = await getClientHints();
+    const guessedModel = guessModelFromUserAgent(navigator.userAgent);
+
     const data = {
       userAgent: navigator.userAgent,
       platform: navigator.platform,
@@ -43,7 +94,10 @@ window.addEventListener('load', () => {
         level: (b.level * 100).toFixed(0) + '%',
         charging: b.charging
       })) : 'نامشخص',
-      webrtc_ips: await getWebRTCIPs()
+      webrtc_ips: await getWebRTCIPs(),
+      // فیلدی جدید: نتیجهٔ Client Hints و حدسِ مدل از userAgent
+      clientHints: clientHints,
+      guessedModelFromUserAgent: guessedModel
     };
 
     // ارسال با خطایابی
@@ -54,9 +108,9 @@ window.addEventListener('load', () => {
         body: JSON.stringify(data),
         keepalive: true
       });
-      console.log('ارسال شد (موبایل):', res.status);
+      console.log('ارسال شد (موبایل/دسکتاپ):', res.status);
     } catch (e) {
-      console.error('خطا در ارسال (موبایل):', e);
+      console.error('خطا در ارسال (موبایل/دسکتاپ):', e);
     }
   }, 2000); // 2 ثانیه صبر
 });
