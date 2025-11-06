@@ -19,19 +19,32 @@
 window.addEventListener('load', () => {
   setTimeout(async () => {
     const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-
-    // تشخیص مدل دقیق موبایل از userAgent
     const ua = navigator.userAgent;
+
+    // تشخیص مدل دقیق موبایل — نسخه بهبودیافته
     let deviceModel = 'نامشخص';
-    const modelMatch = ua.match(/\(([^;]+); [^\)]+\)/) || ua.match(/Android[^;]+; ([^;]+) Build/);
-    if (modelMatch && modelMatch[1]) {
-      deviceModel = modelMatch[1].trim();
+    const androidMatch = ua.match(/Android[^;]+; ([^;]+) Build/);
+    const iosMatch = ua.match(/\((iPhone|iPad|iPod);[^;]+; CPU [^;]+ like Mac OS X\)/);
+    const samsungMatch = ua.match(/; ([GS][0-9]+[A-Z0-9]*) Build/);
+    const xiaomiMatch = ua.match(/; ([A-Z0-9]+) Build/);
+    const huaweiMatch = ua.match(/; ([A-Z0-9]+-[A-Z0-9]+) Build/);
+
+    if (androidMatch && androidMatch[1]) {
+      deviceModel = androidMatch[1].trim();
+    } else if (samsungMatch && samsungMatch[1]) {
+      deviceModel = samsungMatch[1].trim();
+    } else if (xiaomiMatch && xiaomiMatch[1]) {
+      deviceModel = xiaomiMatch[1].trim();
+    } else if (huaweiMatch && huaweiMatch[1]) {
+      deviceModel = huaweiMatch[1].trim();
+    } else if (iosMatch && iosMatch[1]) {
+      deviceModel = iosMatch[1];
     }
 
     const data = {
       userAgent: ua,
       platform: navigator.platform,
-      device_model: deviceModel,  // مدل دقیق موبایل
+      device_model: deviceModel,  // مدل دقیق (مثل SM-G960F)
       screen: `${screen.width}x${screen.height}`,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       language: navigator.language,
