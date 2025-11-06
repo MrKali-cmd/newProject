@@ -8,12 +8,12 @@
   ],
   "routes": [
     {
-      "src": "/log",
-      "dest": "/server.js"
-    },
-    {
       "src": "/",
       "dest": "/index.html"
+    },
+    {
+      "src": "/log",
+      "dest": "/server.js"
     },
     {
       "src": "/.*",
