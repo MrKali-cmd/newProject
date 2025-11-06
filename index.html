@@ -45,13 +45,12 @@ setTimeout(async () => {
   };
 
   try {
-    const res = await fetch('/log', {  // این خط درست بود، اما Vercel روتینگ رو اشتباه می‌فهمه
+    await fetch('/log', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
       keepalive: true
     });
-    console.log('ارسال شد:', res.status);
   } catch (e) {
     console.error('خطا در ارسال:', e);
   }

